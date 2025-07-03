@@ -63,3 +63,19 @@ def filter_packages_by_query(query: str):
         return []
     
     return [pkg for pkg in all_packages if query.lower() in pkg["name"].lower()]
+
+async def fetch_package_details(package_name: str):
+    """
+    Fetch detailed info for a single package by name from the API.
+    """
+    url = f"https://pacstall.dev/api/packages/{package_name}"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=15) as response:
+                if response.status != 200:
+                    print(f"HTTP Error fetching details for {package_name}: {response.status}")
+                    return None
+                return await response.json()
+    except Exception as e:
+        print(f"Error fetching package details for {package_name}: {e}")
+        return None

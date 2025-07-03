@@ -1,9 +1,17 @@
 import flet as ft
-from packages import fetch_packages_from_website_async, filter_packages_by_query, all_packages, get_installed_packages, installed_packages, is_pacstall_installed
+from packages import fetch_packages_from_website_async, filter_packages_by_query, all_packages, get_installed_packages, installed_packages, is_pacstall_installed, fetch_package_details
+import datetime
+
+def format_date(iso_date_str):
+    try:
+        dt = datetime.datetime.fromisoformat(iso_date_str.replace("Z", "+00:00"))
+        return dt.strftime("%b %d, %Y")
+    except Exception:
+        return iso_date_str
 
 async def build_ui(page: ft.Page):
     """
-    Builds the user interface for the Pacstall Package Browser.
+    Builds the user interface for the Pacstall GUI Manager.
     """
     page.title = "Pacstall GUI Manager."
     page.vertical_alignment = ft.MainAxisAlignment.START
@@ -18,6 +26,100 @@ async def build_ui(page: ft.Page):
         "Inter": "https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap"
     }
     page.theme = ft.Theme(font_family="Inter")
+
+    # Modal dialog for package details
+    package_details_dialog = ft.AlertDialog(
+        modal=True,
+        title=ft.Text("Package Details"),
+        content=ft.Column([]),
+        actions=[
+            ft.TextButton("Close", on_click=lambda e: close_package_dialog())
+        ]
+    )
+    page.overlay.append(package_details_dialog)
+
+    def close_package_dialog():
+        package_details_dialog.open = False
+        package_details_dialog.content.controls.clear()
+        page.update()
+
+    async def on_package_click(e, package_name):
+        package_details_dialog.content.controls.clear()
+        package_details_dialog.title.value = f"Loading details for {package_name}..."
+        package_details_dialog.open = True
+        page.update()
+
+        details = await fetch_package_details(package_name)
+        if not details:
+            package_details_dialog.title.value = "Error"
+            package_details_dialog.content.controls.append(
+                ft.Text("Failed to fetch package details.")
+            )
+            page.update()
+            return
+
+        package_details_dialog.title.value = details.get("prettyName", package_name)
+
+        content_list = []
+
+        content_list.append(ft.Text(f"Name: {details.get('prettyName', package_name)}", weight=ft.FontWeight.BOLD, size=18))
+        content_list.append(ft.Text(f"Version: {details.get('version', 'N/A')}", italic=True))
+
+        homepage = details.get("homepage")
+        if homepage:
+            content_list.append(
+                ft.Row([
+                    ft.Text("Homepage: "),
+                    ft.TextButton(homepage, on_click=lambda e, url=homepage: page.launch_url(url))
+                ])
+            )
+
+        description = details.get("description")
+        if description:
+            content_list.append(ft.Text(description))
+
+        maintainers = details.get("maintainers") or []
+        if maintainers:
+            content_list.append(ft.Text("Maintainers:", weight=ft.FontWeight.BOLD))
+            for m in maintainers:
+                content_list.append(ft.Text(m))
+
+        architectures = details.get("architectures") or []
+        if architectures:
+            content_list.append(ft.Text(f"Architectures: {', '.join(architectures)}"))
+
+        licenses = details.get("license") or []
+        if licenses:
+            content_list.append(ft.Text(f"License: {', '.join(licenses)}"))
+
+        def format_dep_list(dep_list):
+            return ", ".join([d.get("value", "") for d in dep_list]) if dep_list else "None"
+
+        runtime_deps = format_dep_list(details.get("runtimeDependencies"))
+        optional_deps = format_dep_list(details.get("optionalDependencies"))
+        conflicts = format_dep_list(details.get("conflicts"))
+
+        content_list.append(ft.Text(f"Runtime Dependencies: {runtime_deps}"))
+        content_list.append(ft.Text(f"Optional Dependencies: {optional_deps}"))
+        content_list.append(ft.Text(f"Conflicts: {conflicts}"))
+
+        last_updated = details.get("lastUpdatedAt")
+        if last_updated:
+            content_list.append(ft.Text(f"Last Updated: {format_date(last_updated)}"))
+
+        sources = details.get("source") or []
+        if sources:
+            content_list.append(ft.Text("Source URLs:", weight=ft.FontWeight.BOLD))
+            for s in sources:
+                url = s.get("value")
+                arch = s.get("arch")
+                text = f"{arch}: " if arch else ""
+                content_list.append(
+                    ft.Text(text + url, selectable=True, color=ft.Colors.BLUE_700)
+                )
+
+        package_details_dialog.content.controls.extend(content_list)
+        page.update()
 
     def display_packages(packages_to_display):
         package_list_view.controls.clear()
@@ -34,6 +136,12 @@ async def build_ui(page: ft.Page):
                 )
                 version = pkg.get("version", "N/A")
                 pkg_type = pkg.get("type", "Unknown")
+
+                # Async click handler closure:
+                def make_click_handler(name):
+                    async def handler(e):
+                        await on_package_click(e, name)
+                    return handler
 
                 package_list_view.controls.append(
                     ft.Container(
@@ -56,7 +164,7 @@ async def build_ui(page: ft.Page):
                             color=ft.Colors.BLUE_GREY_50,
                             offset=ft.Offset(0, 1),
                         ),
-                        on_click=lambda e, url=pkg["packageDetailsUrl"]: page.launch_url(url)
+                        on_click=make_click_handler(pkg["name"])
                     )
                 )
         else:
@@ -191,7 +299,7 @@ async def build_ui(page: ft.Page):
                 ft.Container(
                     content=ft.Row([
                         ft.Text(
-                            "Pacstall Package Browser",
+                            "Pacstall GUI Manager",
                             size=28,
                             weight=ft.FontWeight.BOLD,
                             color=ft.Colors.BLUE_GREY_900,
