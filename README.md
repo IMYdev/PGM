@@ -35,7 +35,8 @@ This project is under active development. Here are some of the features we plan 
 
 ## 🛠️ Installation
 
-##### Note: The following steps will only exist until a proper packaging system is implemented.
+### Simply download and execute the binary from the releases page [here](https://github.com/IMYdev/PGM/releases/tag/Alpha).
+## OR
 
 1.  **Clone the repository:**
     ```bash
@@ -51,16 +52,12 @@ This project is under active development. Here are some of the features we plan 
 
 3.  **Install the dependencies:**
     ```bash
-    pip install -r requirements.txt
+    pip3 install -r requirements.txt
     ```
-
-## ▶️ Usage
-
-To run the application, simply execute the `main.py` script:
-
-```bash
-python main.py
-```
+4.  **To run the application, simply execute the `main.py` script:**
+    ```bash
+    python main.py
+    ```
 
 ## 🤝 Contributing
 
