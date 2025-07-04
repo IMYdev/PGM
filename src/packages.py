@@ -1,5 +1,6 @@
 import aiohttp
 import subprocess
+import asyncio
 
 all_packages = []
 installed_packages = set()
@@ -79,3 +80,69 @@ async def fetch_package_details(package_name: str):
     except Exception as e:
         print(f"Error fetching package details for {package_name}: {e}")
         return None
+
+async def install_package(package_name: str, password: str = None):
+    """
+    Installs a Pacstall package asynchronously.
+    If password is provided, uses sudo for installation.
+    Returns (success: bool, output: str)
+    """
+    try:
+        if password is not None:
+            proc = await asyncio.create_subprocess_exec(
+                'sudo', '-S', 'pacstall', '-I', package_name,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT
+            )
+            # Send password
+            stdout, _ = await proc.communicate((password + '\n').encode())
+        else:
+            proc = await asyncio.create_subprocess_exec(
+                'pacstall', '-I', package_name,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT
+            )
+            stdout, _ = await proc.communicate()
+
+        output = stdout.decode(errors='ignore')
+        success = proc.returncode == 0
+        if success:
+            installed_packages.clear()
+            installed_packages.update(get_installed_packages())
+        return success, output
+    except Exception as e:
+        return False, str(e)
+
+async def uninstall_package(package_name: str, password: str = None):
+    """
+    Uninstalls a Pacstall package asynchronously.
+    If password is provided, uses sudo for uninstallation.
+    Returns (success: bool, output: str)
+    """
+    try:
+        if password is not None:
+            proc = await asyncio.create_subprocess_exec(
+                'sudo', '-S', 'pacstall', '-R', package_name,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT
+            )
+            # Send password
+            stdout, _ = await proc.communicate((password + '\n').encode())
+        else:
+            proc = await asyncio.create_subprocess_exec(
+                'pacstall', '-R', package_name,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT
+            )
+            stdout, _ = await proc.communicate()
+
+        output = stdout.decode(errors='ignore')
+        success = proc.returncode == 0
+        if success:
+            installed_packages.clear()
+            installed_packages.update(get_installed_packages())
+        return success, output
+    except Exception as e:
+        return False, str(e)

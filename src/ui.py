@@ -1,7 +1,10 @@
 import flet as ft
 import os
 import json
-from packages import fetch_packages_from_website_async, filter_packages_by_query, all_packages, get_installed_packages, installed_packages, is_pacstall_installed, fetch_package_details
+import asyncio
+import re
+import signal
+from packages import install_package, uninstall_package, fetch_packages_from_website_async, filter_packages_by_query, all_packages, get_installed_packages, installed_packages, is_pacstall_installed, fetch_package_details
 import datetime
 
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".PGM")
@@ -70,14 +73,35 @@ async def build_ui(page: ft.Page):
         width=page.width / 2,
         padding=10,
     )
+    
 
     package_details_dialog = ft.AlertDialog(
         modal=True,
         title=ft.Text("Package Details"),
-        content=details_container,
-        actions=[ft.TextButton("Close", on_click=lambda e: close_package_dialog())]
+        content=details_container
     )
     page.overlay.append(package_details_dialog)
+
+    sudo_password_field = ft.TextField(
+        label="Sudo Password",
+        password=True,
+        can_reveal_password=True,
+        autofocus=True,
+        width=300
+    )
+
+    password_dialog = ft.AlertDialog(
+        modal=True,
+        title=ft.Text("Authentication Required"),
+        content=sudo_password_field,
+        actions=[
+            ft.TextButton("Cancel", on_click=lambda e: close_password_dialog()),
+            ft.ElevatedButton("Continue", on_click=lambda e: on_password_submit())
+        ]
+    )
+
+    page.overlay.append(password_dialog)
+
 
     def on_resize(e):
         details_container.width = page.width / 2
@@ -90,10 +114,183 @@ async def build_ui(page: ft.Page):
         details_column.controls.clear()
         page.update()
 
+    def close_password_dialog():
+        password_dialog.open = False
+        sudo_password_field.value = ""
+        page.update()
+
+    def close_dialog(dialog):
+        dialog.open = False
+        page.update()
+
+
+    loop = asyncio.get_running_loop()
+    
+    def on_password_submit():
+        package_name = password_dialog.data
+        password = sudo_password_field.value + "\n"
+        password_dialog.open = False
+        sudo_password_field.value = ""
+        page.update()
+
+        # Create a new un/install-specific dialog
+        log_column = ft.Column(scroll=ft.ScrollMode.AUTO, spacing=4, expand=True)
+
+        log_view = ft.Container(
+            content=log_column,
+            width=page.width * 0.75,
+            height=400,
+            padding=10,
+            bgcolor=ft.Colors.BLACK,
+            border_radius=ft.border_radius.all(8),
+            clip_behavior=ft.ClipBehavior.HARD_EDGE
+        )
+
+        uninstall_dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text(f"Uninstalling {package_name}..."),
+            content=log_view,
+            actions=[ft.TextButton("Cancel", on_click=lambda e: cancel_process(uninstall_dialog))]
+        )
+
+        install_dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text(f"Installing {package_name}..."),
+            content=log_view,
+            actions=[ft.TextButton("Cancel", on_click=lambda e: cancel_process(install_dialog))]
+        )
+
+        if package_name in installed_packages:
+            page.overlay.append(uninstall_dialog)
+            uninstall_dialog.open = True
+            page.update()
+            asyncio.run_coroutine_threadsafe(
+                uninstall_and_show_output(package_name, password, log_column, uninstall_dialog),
+                loop
+            )
+
+        if package_name not in installed_packages:
+            page.overlay.append(install_dialog)
+            install_dialog.open = True
+            page.update()
+            asyncio.run_coroutine_threadsafe(
+                install_and_show_output(package_name, password, log_column, install_dialog),
+                loop
+        )
+
+
+    
+    ansi_escape = re.compile(r'\x1B[@-_][0-?]*[ -/]*[@-~]')
+
+    def clean_log_line(line):
+        # Remove ANSI escape codes and strip whitespace
+        return ansi_escape.sub('', line).strip()
+    
+    running_processes = {}
+
+    def cancel_process(dialog):
+        proc = running_processes.get(dialog)
+        if proc and proc.returncode is None:
+            try:
+                proc.send_signal(signal.SIGINT)
+            except Exception as e:
+                print(f"Failed to send SIGINT: {e}")
+        close_dialog(dialog)
+    
+    async def install_and_show_output(package_name, password, log_column, dialog):
+        try:
+            log_column.controls.append(ft.Text("Starting installation...", color=ft.Colors.BLUE_200))
+            dialog.update()
+            # Start install and keep process reference
+            proc = await asyncio.create_subprocess_exec(
+                'sudo', '-S', 'pacstall', '-I', package_name,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT
+            ) if password else await asyncio.create_subprocess_exec(
+                'pacstall', '-I', package_name,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT
+            )
+            running_processes[dialog] = proc
+            if password:
+                stdout, _ = await proc.communicate((password + '\n').encode())
+            else:
+                stdout, _ = await proc.communicate()
+            output = stdout.decode(errors='ignore')
+            for line in output.splitlines():
+                clean_line = clean_log_line(line)
+                if clean_line:
+                    log_column.controls.append(
+                        ft.Text(clean_line, color=ft.Colors.GREEN_100, size=12)
+                    )
+                    dialog.update()
+            success = proc.returncode == 0
+            if success:
+                installed_packages.clear()
+                installed_packages.update(get_installed_packages())
+                display_packages(all_packages, installed_only=viewing_installed)
+                log_column.controls.append(ft.Text("Install complete.", color=ft.Colors.GREEN_400))
+            else:
+                log_column.controls.append(ft.Text("Install failed.", color=ft.Colors.RED_400))
+            dialog.actions = [ft.TextButton("Close", on_click=lambda e: close_dialog(dialog))]
+            dialog.update()
+        except Exception as e:
+            log_column.controls.append(ft.Text(f"Error: {e}", color=ft.Colors.RED_400))
+            dialog.update()
+        finally:
+            running_processes.pop(dialog, None)
+
+    async def uninstall_and_show_output(package_name, password, log_column, dialog):
+        try:
+            log_column.controls.append(ft.Text("Starting uninstall...", color=ft.Colors.BLUE_200))
+            dialog.update()
+            proc = await asyncio.create_subprocess_exec(
+                'sudo', '-S', 'pacstall', '-R', package_name,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT
+            ) if password else await asyncio.create_subprocess_exec(
+                'pacstall', '-R', package_name,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT
+            )
+            running_processes[dialog] = proc
+            if password:
+                stdout, _ = await proc.communicate((password + '\n').encode())
+            else:
+                stdout, _ = await proc.communicate()
+            output = stdout.decode(errors='ignore')
+            for line in output.splitlines():
+                clean_line = clean_log_line(line)
+                if clean_line:
+                    log_column.controls.append(
+                        ft.Text(clean_line, color=ft.Colors.GREEN_100, size=12)
+                    )
+                    dialog.update()
+            success = proc.returncode == 0
+            if success:
+                installed_packages.clear()
+                installed_packages.update(get_installed_packages())
+                display_packages(all_packages, installed_only=viewing_installed)
+                log_column.controls.append(ft.Text("Uninstall complete.", color=ft.Colors.GREEN_400))
+            else:
+                log_column.controls.append(ft.Text("Uninstall failed.", color=ft.Colors.RED_400))
+            dialog.actions = [ft.TextButton("Close", on_click=lambda e: close_dialog(dialog))]
+            dialog.update()
+        except Exception as e:
+            log_column.controls.append(ft.Text(f"Error: {e}", color=ft.Colors.RED_400))
+            dialog.update()
+        finally:
+            running_processes.pop(dialog, None)
+
+
+
     async def on_package_click(e, package_name):
         details_column.controls.clear()
         package_details_dialog.title.value = f"Loading..."
         package_details_dialog.open = True
+        package_details_dialog.actions = [ft.Text("Please wait...")]  # placeholder
         page.update()
 
         details = await fetch_package_details(package_name)
@@ -102,6 +299,9 @@ async def build_ui(page: ft.Page):
             details_column.controls.append(
                 ft.Text("Failed to fetch package details.")
             )
+            package_details_dialog.actions = [
+            ft.TextButton("Close", on_click=lambda e: close_package_dialog())
+            ]
             page.update()
             return
 
@@ -354,10 +554,50 @@ async def build_ui(page: ft.Page):
             )
 
             content_list.append(sources_view)
+        
+        # Uninstall button logic
+        actions = []
+        if package_name in installed_packages:
+            def on_uninstall_click(e):
+
+                password_dialog.data = package_name
+                sudo_password_field.value = ""
+                password_dialog.open = True
+                page.update()
+
+            uninstall_btn = ft.ElevatedButton(
+                text="Uninstall",
+                color=ft.Colors.WHITE,
+                bgcolor=ft.Colors.RED_600,
+                on_click=on_uninstall_click
+            )
+            actions.append(uninstall_btn)
+        if package_name not in installed_packages:
+            def on_install_click(e):
+
+                password_dialog.data = package_name
+                sudo_password_field.value = ""
+                password_dialog.open = True
+                page.update()
+
+
+            install_btn = ft.ElevatedButton(
+                text="Install",
+                color=ft.Colors.WHITE,
+                bgcolor=ft.Colors.GREEN_600,
+                on_click=on_install_click
+            )
+            actions.append(install_btn)
+
+
+        actions.append(ft.TextButton("Close", on_click=lambda e: close_package_dialog()))
+        package_details_dialog.actions = actions
+
 
         details_column.controls.extend(content_list)
         page.update()
 
+    # Inital state of list view
     viewing_installed = False
 
     def display_packages(packages_to_display, installed_only=False):
