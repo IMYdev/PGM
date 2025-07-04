@@ -10,9 +10,6 @@ def format_date(iso_date_str):
         return iso_date_str
 
 async def build_ui(page: ft.Page):
-    """
-    Builds the user interface for the Pacstall GUI Manager.
-    """
     page.title = "Pacstall GUI Manager."
     page.vertical_alignment = ft.MainAxisAlignment.START
     page.window_width = 800
@@ -20,46 +17,55 @@ async def build_ui(page: ft.Page):
     page.window_min_width = 600
     page.window_min_height = 400
 
-    # Theme
     page.theme_mode = ft.ThemeMode.LIGHT
     page.fonts = {
         "Inter": "https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap"
     }
     page.theme = ft.Theme(font_family="Inter")
 
-    # Modal dialog for package details
+    details_column = ft.Column([], scroll=ft.ScrollMode.AUTO)
+
+    details_container = ft.Container(
+        content=details_column,
+        width=page.width / 2,
+        padding=10,
+    )
+
     package_details_dialog = ft.AlertDialog(
         modal=True,
         title=ft.Text("Package Details"),
-        content=ft.Column([]),
-        actions=[
-            ft.TextButton("Close", on_click=lambda e: close_package_dialog())
-        ]
+        content=details_container,
+        actions=[ft.TextButton("Close", on_click=lambda e: close_package_dialog())]
     )
     page.overlay.append(package_details_dialog)
 
+    def on_resize(e):
+        details_container.width = page.width / 2
+        details_container.update()
+
+    page.on_resize = on_resize
+
     def close_package_dialog():
         package_details_dialog.open = False
-        package_details_dialog.content.controls.clear()
+        details_column.controls.clear()
         page.update()
 
     async def on_package_click(e, package_name):
-        package_details_dialog.content.controls.clear()
-        package_details_dialog.title.value = f"Loading details for {package_name}..."
+        details_column.controls.clear()
+        package_details_dialog.title.value = f"Loading..."
         package_details_dialog.open = True
         page.update()
 
         details = await fetch_package_details(package_name)
         if not details:
             package_details_dialog.title.value = "Error"
-            package_details_dialog.content.controls.append(
+            details_column.controls.append(
                 ft.Text("Failed to fetch package details.")
             )
             page.update()
             return
 
-        package_details_dialog.title.value = details.get("prettyName", package_name)
-
+        package_details_dialog.title.value = "Package Details"
         content_list = []
 
         content_list.append(ft.Text(f"Name: {details.get('prettyName', package_name)}", weight=ft.FontWeight.BOLD, size=18))
@@ -92,33 +98,224 @@ async def build_ui(page: ft.Page):
         if licenses:
             content_list.append(ft.Text(f"License: {', '.join(licenses)}"))
 
-        def format_dep_list(dep_list):
-            return ", ".join([d.get("value", "") for d in dep_list]) if dep_list else "None"
+        # Runtime dependencies
+        runtime_dependencies = details.get("runtimeDependencies") or []
 
-        runtime_deps = format_dep_list(details.get("runtimeDependencies"))
-        optional_deps = format_dep_list(details.get("optionalDependencies"))
-        conflicts = format_dep_list(details.get("conflicts"))
+        if runtime_dependencies:
+            content_list.append(ft.Text("Runtime Dependencies:", weight=ft.FontWeight.BOLD))
 
-        content_list.append(ft.Text(f"Runtime Dependencies: {runtime_deps}"))
-        content_list.append(ft.Text(f"Optional Dependencies: {optional_deps}"))
-        content_list.append(ft.Text(f"Conflicts: {conflicts}"))
+            runtime_table = ft.Row(
+                scroll=ft.ScrollMode.AUTO,
+                expand=False,
+                width=details_container.width,
+                spacing=6,
+                controls=[]
+            )
+
+            for dep in runtime_dependencies:
+                value = dep.get("value", "Unknown")
+                arch = dep.get("arch", "amd64")
+                text = f"{arch}: {value}"
+
+                runtime_table.controls.append(
+                    ft.Container(
+                        content=ft.Text(
+                            text,
+                            selectable=True,
+                            size=12,
+                            color=ft.Colors.BLUE_GREY_800,
+                        ),
+                        padding=ft.padding.symmetric(vertical=4, horizontal=10),
+                        bgcolor=ft.Colors.BLUE_GREY_50,
+                        border_radius=ft.border_radius.all(6),
+                        border=ft.border.all(1, ft.Colors.BLUE_GREY_100),
+                        tooltip="Dependency"
+                    )
+                )
+
+            content_list.append(runtime_table)
+        else:
+            content_list.append(ft.Text("Runtime Dependencies: None"))
+
+
+
+
+        # Optional dependencies
+        optional_deps = details.get("optionalDependencies") or []
+
+        is_visible = False
+
+        def vis(e=None):
+            nonlocal is_visible, opt_table
+            is_visible = not is_visible
+            vis_button.text = "Hide" if is_visible else "Show"
+            opt_table.visible = is_visible
+            vis_button.update()
+            opt_table.update()
+
+        vis_button = ft.ElevatedButton(text="Show", on_click=vis)
+
+        if optional_deps:
+            content_list.append(ft.Text("Optional Dependencies:", weight=ft.FontWeight.BOLD))
+            content_list.append(vis_button)
+
+            opt_table = ft.Row(
+                scroll=ft.ScrollMode.AUTO,
+                expand=False,
+                width=details_container.width,
+                spacing=6,
+                visible=is_visible,
+                controls=[]
+            )
+
+            for dep in optional_deps:
+                value = dep.get("value", "Unknown")
+                arch = dep.get("arch", "amd64")
+                text = f"{arch}: {value}"
+
+                opt_table.controls.append(
+                    ft.Container(
+                        content=ft.Text(
+                            text,
+                            selectable=True,
+                            size=12,
+                            color=ft.Colors.BLUE_GREY_800,
+                        ),
+                        padding=ft.padding.symmetric(vertical=4, horizontal=10),
+                        bgcolor=ft.Colors.BLUE_GREY_50,
+                        border_radius=ft.border_radius.all(6),
+                        border=ft.border.all(1, ft.Colors.BLUE_GREY_100),
+                        tooltip="Optional dependency"
+                    )
+                )
+
+            content_list.append(opt_table)
+
+
+
+        # Build dependencies
+        build_deps = details.get("buildDependencies") or []
+
+        build_visible = False
+
+        def toggle_build(e=None):
+            nonlocal build_visible, build_table
+            build_visible = not build_visible
+            build_button.text = "Hide" if build_visible else "Show"
+            build_table.visible = build_visible
+            build_button.update()
+            build_table.update()
+
+        build_button = ft.ElevatedButton(text="Show", on_click=toggle_build)
+
+        if build_deps:
+            content_list.append(ft.Text("Build Dependencies:", weight=ft.FontWeight.BOLD))
+            content_list.append(build_button)
+
+            build_table = ft.Row(
+                scroll=ft.ScrollMode.AUTO,
+                expand=False,
+                width=details_container.width,
+                spacing=6,
+                visible=build_visible,
+                controls=[]
+            )
+
+            for dep in build_deps:
+                value = dep.get("value", "Unknown")
+                arch = dep.get("arch", "amd64")
+                text = f"{arch}: {value}"
+
+                build_table.controls.append(
+                    ft.Container(
+                        content=ft.Text(
+                            text,
+                            selectable=True,
+                            size=12,
+                            color=ft.Colors.BLUE_GREY_800,
+                        ),
+                        padding=ft.padding.symmetric(vertical=4, horizontal=10),
+                        bgcolor=ft.Colors.BLUE_GREY_50,
+                        border_radius=ft.border_radius.all(6),
+                        border=ft.border.all(1, ft.Colors.BLUE_GREY_100),
+                        tooltip="Build dependency"
+                    )
+                )
+
+            content_list.append(build_table)
+
+
+        # Conflicted packages
+        conflicts = details.get("conflicts") or []
+        if conflicts:
+            content_list.append(ft.Text("Conflicts:", weight=ft.FontWeight.BOLD))
+
+            conf_view = ft.Row(
+                scroll=ft.ScrollMode.AUTO,
+                expand=False,
+                height=35,
+                width=350,
+                spacing=1,
+                controls=[
+                    ft.Container(
+                        content=ft.Text(
+                            conf.get("value", "Unknown"),
+                            selectable=True,
+                            color=ft.Colors.BLUE_GREY_800,
+                            size=12,
+                        ),
+                        padding=ft.padding.symmetric(vertical=6, horizontal=10),
+                        bgcolor=ft.Colors.BLUE_GREY_50,
+                        border_radius=ft.border_radius.all(6),
+                        border=ft.border.all(1, ft.Colors.BLUE_GREY_100),
+                    )
+                    for conf in conflicts
+                ]
+            )
+
+            content_list.append(conf_view)
+        else:
+            content_list.append(ft.Text(f"Conflicts: None"))
 
         last_updated = details.get("lastUpdatedAt")
         if last_updated:
             content_list.append(ft.Text(f"Last Updated: {format_date(last_updated)}"))
 
+        # Source URLs
         sources = details.get("source") or []
         if sources:
             content_list.append(ft.Text("Source URLs:", weight=ft.FontWeight.BOLD))
-            for s in sources:
-                url = s.get("value")
-                arch = s.get("arch")
-                text = f"{arch}: " if arch else ""
-                content_list.append(
-                    ft.Text(text + url, selectable=True, color=ft.Colors.BLUE_700)
-                )
 
-        package_details_dialog.content.controls.extend(content_list)
+            sources_view = ft.Container(
+                content=ft.Column(
+                    scroll=ft.ScrollMode.AUTO,
+                    expand=True,
+                    spacing=4,
+                    controls=[
+                        ft.Container(
+                            content=ft.Text(
+                                f"{s.get('arch')}: {s.get('value')}" if s.get("arch") else s.get("value"),
+                                selectable=True,
+                                color=ft.Colors.BLUE_700,
+                                size=14,
+                            ),
+                            padding=ft.padding.symmetric(vertical=6, horizontal=10),
+                            bgcolor=ft.Colors.BLUE_GREY_50,
+                            border_radius=ft.border_radius.all(6),
+                            border=ft.border.all(1, ft.Colors.BLUE_GREY_100),
+                        )
+                        for s in sources
+                    ]
+                ),
+                expand=True,
+                clip_behavior=ft.ClipBehavior.HARD_EDGE,
+                border_radius=ft.border_radius.all(8),
+                padding=ft.padding.all(4),
+            )
+
+            content_list.append(sources_view)
+
+        details_column.controls.extend(content_list)
         page.update()
 
     def display_packages(packages_to_display):
@@ -137,7 +334,6 @@ async def build_ui(page: ft.Page):
                 version = pkg.get("version", "N/A")
                 pkg_type = pkg.get("type", "Unknown")
 
-                # Async click handler closure:
                 def make_click_handler(name):
                     async def handler(e):
                         await on_package_click(e, name)
