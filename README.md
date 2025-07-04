@@ -3,7 +3,7 @@
 
 A modern, graphical user interface for browsing and managing [Pacstall](https://pacstall.dev) packages, built with Python and [Flet](https://flet.dev).
 
-![Pacstall GUI Screenshot](screenshot.png)
+![Pacstall GUI Screenshot](showcase.png)
 
 
 ## About
