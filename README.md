@@ -23,9 +23,9 @@ This application provides a user-friendly way to interact with the Pacstall pack
 
 This project is under active development. Here are some of the features we plan to add next:
 
-- [ ] **Install & Uninstall Packages**: Manage packages directly from the GUI.
+- [x] ~~**Install & Uninstall Packages**: Manage packages directly from the GUI.~~
 - [ ] **Update Management**: View available updates for your installed packages and update them with a single click.
-- [ ] **Installation/Process Logging**: See the terminal output in real-time within the app when a package is being installed, updated, or removed.
+- [x] ~~**Installation/Process Logging**: See the terminal output in real-time within the app when a package is being installed, updated, or removed.~~
 - [x] ~~**Detailed Package View**: A dedicated page for each package with more in-depth information.~~
 - [x] ~~**Theme Toggle**: Switch between light and dark modes.~~
 
