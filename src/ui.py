@@ -358,11 +358,15 @@ async def build_ui(page: ft.Page):
         details_column.controls.extend(content_list)
         page.update()
 
-    def display_packages(packages_to_display):
+    viewing_installed = False
+
+    def display_packages(packages_to_display, installed_only=False):
         package_list_view.controls.clear()
-        
-        if packages_to_display:
-            for pkg in packages_to_display:
+
+        filtered = [pkg for pkg in packages_to_display if pkg.get('name') in installed_packages] if installed_only else packages_to_display
+
+        if filtered:
+            for pkg in filtered:
                 is_installed = pkg.get('name') in installed_packages
                 visible_name = pkg.get("visibleName") or pkg.get("name")
                 description = pkg.get("description") or "No description available"
@@ -407,6 +411,18 @@ async def build_ui(page: ft.Page):
             )
 
         page.update()
+
+    switch_button = ft.ElevatedButton(
+    text="Show Installed Packages",
+    on_click=lambda e: toggle_package_view(),
+    style=ft.ButtonStyle(padding=ft.padding.symmetric(vertical=10, horizontal=14))
+)
+    def toggle_package_view():
+        nonlocal viewing_installed
+        viewing_installed = not viewing_installed
+        switch_button.text = "Show All Packages" if viewing_installed else "Show Installed Packages"
+        display_packages(all_packages, installed_only=viewing_installed)
+        switch_button.update()
 
     async def load_and_display_packages(_=None):
         global all_packages, installed_packages
@@ -467,7 +483,7 @@ async def build_ui(page: ft.Page):
             return
 
         filtered = filter_packages_by_query(query)
-        display_packages(filtered)
+        display_packages(filtered, installed_only=viewing_installed)
 
     pacstall_status = ft.Text("", size=12, weight=ft.FontWeight.BOLD)
 
@@ -540,7 +556,7 @@ async def build_ui(page: ft.Page):
                 ),
 
                 ft.Row(
-                    [search_input, refresh_button],
+                    [search_input, refresh_button, switch_button],
                     alignment=ft.MainAxisAlignment.CENTER,
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     spacing=10
