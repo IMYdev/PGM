@@ -417,15 +417,24 @@ async def build_ui(page: ft.Page):
     on_click=lambda e: toggle_package_view(),
     style=ft.ButtonStyle(padding=ft.padding.symmetric(vertical=10, horizontal=14))
 )
-    def toggle_package_view():
-        nonlocal viewing_installed
+    def toggle_package_view(e):
+        global viewing_installed
         viewing_installed = not viewing_installed
         switch_button.text = "Show All Packages" if viewing_installed else "Show Installed Packages"
-        display_packages(all_packages, installed_only=viewing_installed)
         switch_button.update()
+        display_packages(all_packages, installed_only=viewing_installed)
+
+    switch_button.on_click = toggle_package_view
 
     async def load_and_display_packages(_=None):
-        global all_packages, installed_packages
+        global all_packages, installed_packages, viewing_installed
+
+        # Reset view state
+        viewing_installed = False
+
+        # Update UI immediately
+        switch_button.text = "Show Installed Packages"
+        switch_button.update()
 
         pacstall_status.value = "Pacstall: Checking..."
         pacstall_status.color = ft.Colors.BLUE_GREY_400
@@ -445,6 +454,7 @@ async def build_ui(page: ft.Page):
         loading_indicator.visible = True
         search_input.disabled = True
         refresh_button.disabled = True
+        switch_button.disabled = True
         page.update()
 
         installed_packages.clear()
@@ -456,10 +466,11 @@ async def build_ui(page: ft.Page):
         loading_indicator.visible = False
         search_input.disabled = False
         refresh_button.disabled = False
+        switch_button.disabled = False
         page.update()
 
         if all_packages:
-            display_packages(all_packages)
+            display_packages(all_packages, installed_only=viewing_installed)
         else:
             package_list_view.controls.clear()
             package_list_view.controls.append(
