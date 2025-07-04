@@ -1,6 +1,25 @@
 import flet as ft
+import os
+import json
 from packages import fetch_packages_from_website_async, filter_packages_by_query, all_packages, get_installed_packages, installed_packages, is_pacstall_installed, fetch_package_details
 import datetime
+
+CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".PGM")
+CONFIG_PATH = os.path.join(CONFIG_DIR, "config")
+
+def load_config():
+    if not os.path.exists(CONFIG_PATH):
+        return {}
+    try:
+        with open(CONFIG_PATH, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def save_config(config):
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+    with open(CONFIG_PATH, "w") as f:
+        json.dump(config, f)
 
 def format_date(iso_date_str):
     try:
@@ -17,7 +36,28 @@ async def build_ui(page: ft.Page):
     page.window_min_width = 600
     page.window_min_height = 400
 
-    page.theme_mode = ft.ThemeMode.LIGHT
+    config = load_config()
+    theme_value = config.get("theme", "light").lower()
+    page.theme_mode = ft.ThemeMode.DARK if theme_value == "dark" else ft.ThemeMode.LIGHT
+
+    def toggle_theme(e):
+        new_mode = (
+            ft.ThemeMode.DARK if page.theme_mode == ft.ThemeMode.LIGHT else ft.ThemeMode.LIGHT
+        )
+        page.theme_mode = new_mode
+        theme_toggle.icon = (
+            ft.Icons.DARK_MODE if new_mode == ft.ThemeMode.DARK else ft.Icons.LIGHT_MODE
+        )
+        save_config({"theme": "dark" if new_mode == ft.ThemeMode.DARK else "light"})
+        page.update()
+
+    theme_toggle = ft.IconButton(
+        icon=ft.Icons.DARK_MODE if page.theme_mode == ft.ThemeMode.DARK else ft.Icons.LIGHT_MODE,
+        tooltip="Toggle Theme",
+        on_click=toggle_theme,
+    )
+
+
     page.fonts = {
         "Inter": "https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap"
     }
@@ -343,23 +383,17 @@ async def build_ui(page: ft.Page):
                     ft.Container(
                         content=ft.Column([
                             ft.Row([
-                                ft.Text(visible_name, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
+                                ft.Text(visible_name, weight=ft.FontWeight.BOLD, color=ft.ColorScheme.primary),
                                 ft.Text("Installed", color=ft.Colors.GREEN_600, weight=ft.FontWeight.BOLD, visible=is_installed)
                             ]),
-                            ft.Text(f"Version: {version} • Type: {pkg_type}", size=11, color=ft.Colors.BLUE_GREY_600),
-                            ft.Text(description, size=12, color=ft.Colors.BLUE_GREY_700),
-                            ft.Text(maintainer_text, size=11, italic=True, color=ft.Colors.GREY_600),
+                            ft.Text(f"Version: {version} • Type: {pkg_type}", size=11, color=ft.ColorScheme.primary),
+                            ft.Text(description, size=12, color=ft.ColorScheme.primary),
+                            ft.Text(maintainer_text, size=11, italic=True, color=ft.ColorScheme.primary),
                         ]),
                         padding=ft.padding.symmetric(vertical=8, horizontal=12),
                         border_radius=ft.border_radius.all(6),
-                        bgcolor=ft.Colors.WHITE,
+                        bgcolor=ft.ColorScheme.surface,
                         border=ft.border.all(1, ft.Colors.GREEN_200 if is_installed else ft.Colors.BLUE_GREY_100),
-                        shadow=ft.BoxShadow(
-                            spread_radius=0.5,
-                            blur_radius=2,
-                            color=ft.Colors.BLUE_GREY_50,
-                            offset=ft.Offset(0, 1),
-                        ),
                         on_click=make_click_handler(pkg["name"])
                     )
                 )
@@ -446,7 +480,6 @@ async def build_ui(page: ft.Page):
         focused_border_color=ft.Colors.BLUE_500,
         on_change=filter_and_display_packages,
         on_submit=filter_and_display_packages,
-        text_style=ft.TextStyle(color=ft.Colors.BLUE_GREY_900)
     )
     
     refresh_button = ft.IconButton(
@@ -479,14 +512,7 @@ async def build_ui(page: ft.Page):
         expand=True,
         padding=ft.padding.all(10),
         border_radius=ft.border_radius.all(12),
-        bgcolor=ft.Colors.BLUE_GREY_50,
         border=ft.border.all(1, ft.Colors.BLUE_GREY_200),
-        shadow=ft.BoxShadow(
-            spread_radius=1,
-            blur_radius=10,
-            color=ft.Colors.BLUE_GREY_100,
-            offset=ft.Offset(0, 5),
-        ),
     )
 
     page.add(
@@ -498,13 +524,21 @@ async def build_ui(page: ft.Page):
                             "Pacstall GUI Manager",
                             size=28,
                             weight=ft.FontWeight.BOLD,
-                            color=ft.Colors.BLUE_GREY_900,
+                            color=ft.Colors.PRIMARY
                         ),
-                        pacstall_status
+                        ft.Column(
+                            [
+                                ft.Container(pacstall_status, alignment=ft.alignment.center),
+                                theme_toggle
+                            ],
+                            alignment=ft.MainAxisAlignment.CENTER,
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER
+                        )
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                     alignment=ft.alignment.center,
                     padding=ft.padding.only(bottom=20)
                 ),
+
                 ft.Row(
                     [search_input, refresh_button],
                     alignment=ft.MainAxisAlignment.CENTER,
@@ -523,5 +557,4 @@ async def build_ui(page: ft.Page):
             spacing=20
         )
     )
-
     page.on_ready = await load_and_display_packages()
