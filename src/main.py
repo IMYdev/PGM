@@ -1,5 +1,5 @@
 import flet as ft
-from ui import build_ui
+from app import build_ui
 
 async def main(page: ft.Page):
     await build_ui(page)
