@@ -7,7 +7,7 @@ A modern, graphical user interface for browsing and managing [Pacstall](https://
 ![Package details](package_details.png)
 ![Package installation](package_install.png)
 ![Package removal](package_removal.png)
-
+![Local packages view](local_packages.png)
 
 
 ## About
