@@ -22,9 +22,11 @@ org = "ly.com.imy"
 product = "pgm"
 
 # company name to display in about app dialogs
+# irrelevant for Linux
 company = "Flet"
 
 # copyright text to display in about app dialogs
+# irrelevant for Linux
 copyright = "Copyright (C) 2025 by Flet"
 
 [tool.flet.app]
