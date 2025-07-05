@@ -21,7 +21,7 @@ This application provides a user-friendly way to interact with the Pacstall pack
 - **View Package Details**: See essential information for each package, including its version, description, and maintainer.
 - **Installed Package Detection**: PGM will automatically detect and mark packages that you already have installed locally.
 - **Pacstall Status Check**: Immediately see if `pacstall` is detected on your system.
-- **Direct Link**: Click on any package to open its official details page on `pacstall.dev` in your web browser.
+- **Manage Pacstall Packages**: Install/Uninstall pacakges is as easy as a few clicks.
 
 ## 🚀 Planned Features
 
