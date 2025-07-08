@@ -59,6 +59,10 @@ This project is under active development. Here are some of the features we plan 
 
 Contributions are welcome! If you have ideas for new features, bug fixes, or improvements, feel free to open an issue or submit a pull request.
 
+## 👨‍💻 Credits
+- Pacstall [developers](https://discord.gg/yzrjXJV6K8) for the [Pacstall Package Manager](https://github.com/pacstall/pacstall).
+- [@april865](https://t.me/april865) for the logo.
+
 ## 📄 License
 
 This project is open-source and available under the GPLv3 copyleft.
