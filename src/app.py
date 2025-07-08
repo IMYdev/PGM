@@ -249,8 +249,44 @@ async def build_ui(page: ft.Page):
 
     page.overlay.append(password_dialog)
 
+    about_button = ft.IconButton(
+        icon=ft.Icons.INFO,
+        on_click=lambda e: show_about_section())
+    
+    about_section = ft.AlertDialog(
+        modal=False,
+        content=ft.Column(
+            controls=[
+                ft.Container(
+                    content=ft.Image(
+                        src="PGM.svg",
+                        width=page.width / 10,
+                        fit=ft.ImageFit.CONTAIN
+                    ),
+                    alignment=ft.alignment.top_center,
+                ),
+                ft.Text("Pacstall GUI Manager by IMYdev.", size=page.width / 60), # This scaling is cursed but it works (:
+                ft.TextButton(text="Developer website", on_click=lambda e: page.launch_url("https://imy.com.ly")),
+                ft.TextButton(text="Project page", on_click=lambda e: page.launch_url("https://github.com/IMYdev/PGM")),
+                ft.Row(
+                    controls= [
+                        ft.Text("Logo by:"),
+                        ft.TextButton(text="@april865", on_click=lambda e: page.launch_url("https://t.me/april865"))
+                    ],
+                    tight=True
+                )
+            ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            alignment=ft.MainAxisAlignment.START,
+            tight=True
+        )
+    )
 
-    def on_resize(e):
+
+    page.overlay.append(about_section)
+
+
+    def on_resize():
         details_container.width = page.width / 2
         details_container.update()
 
@@ -268,6 +304,10 @@ async def build_ui(page: ft.Page):
 
     def close_dialog(dialog):
         dialog.open = False
+        page.update()
+    
+    def show_about_section():
+        about_section.open = True
         page.update()
 
 
@@ -933,22 +973,33 @@ async def build_ui(page: ft.Page):
         ft.Column(
             [
                 ft.Container(
-                    content=ft.Row([
-                        ft.Text(
-                            "Pacstall GUI Manager",
-                            size=28,
-                            weight=ft.FontWeight.BOLD,
-                            color=ft.Colors.PRIMARY
-                        ),
-                        ft.Column(
-                            [
-                                ft.Container(pacstall_status, alignment=ft.alignment.center),
-                                theme_toggle
-                            ],
-                            alignment=ft.MainAxisAlignment.CENTER,
-                            horizontal_alignment=ft.CrossAxisAlignment.CENTER
-                        )
-                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    content=ft.Row(
+                        [
+                            ft.Row(  # Title + About
+                                [
+                                    ft.Text(
+                                        "Pacstall GUI Manager",
+                                        size=28,
+                                        weight=ft.FontWeight.BOLD,
+                                        color=ft.Colors.PRIMARY
+                                    ),
+                                    about_button
+                                ],
+                                spacing=10,
+                                alignment=ft.MainAxisAlignment.START,
+                                vertical_alignment=ft.CrossAxisAlignment.CENTER
+                            ),
+                            ft.Column(  # Status + Theme toggle
+                                [
+                                    ft.Container(pacstall_status, alignment=ft.alignment.center),
+                                    theme_toggle
+                                ],
+                                alignment=ft.MainAxisAlignment.CENTER,
+                                horizontal_alignment=ft.CrossAxisAlignment.CENTER
+                            )
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                    ),
                     alignment=ft.alignment.center,
                     padding=ft.padding.only(bottom=20)
                 ),
@@ -971,4 +1022,5 @@ async def build_ui(page: ft.Page):
             spacing=20
         )
     )
+
     page.on_ready = await load_and_display_packages()
