@@ -1,13 +1,13 @@
-import flet as ft
 import os
-import json
-import asyncio
 import re
+import json
 import signal
-import datetime
-import aiohttp
-import subprocess
 import asyncio
+import datetime
+import subprocess
+
+import aiohttp
+import flet as ft
 
 
 all_packages = []
@@ -322,6 +322,7 @@ async def build_ui(page: ft.Page):
 
         # Create a new un/install-specific dialog
         log_column = ft.Column(scroll=ft.ScrollMode.AUTO, spacing=4, expand=True)
+        log_column.auto_scroll = True
 
         log_view = ft.Container(
             content=log_column,
@@ -785,7 +786,7 @@ async def build_ui(page: ft.Page):
         page.update()
 
     # Inital state of list view
-    viewing_installed = False
+    # viewing_installed = False
 
     def display_packages(packages_to_display, installed_only=False):
         package_list_view.controls.clear()
