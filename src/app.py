@@ -786,7 +786,7 @@ async def build_ui(page: ft.Page):
         page.update()
 
     # Inital state of list view
-    viewing_installed = False
+    # viewing_installed = False
 
     def display_packages(packages_to_display, installed_only=False):
         package_list_view.controls.clear()
