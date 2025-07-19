@@ -932,7 +932,6 @@ async def build_ui(page: ft.Page):
         border_radius=ft.border_radius.all(8),
         border_color=ft.Colors.BLUE_GREY_200,
         focused_border_color=ft.Colors.BLUE_500,
-        on_change=filter_and_display_packages,
         on_submit=filter_and_display_packages,
     )
     
