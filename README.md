@@ -10,7 +10,7 @@ A modern, graphical user interface for browsing and managing [Pacstall](https://
 
 This application provides a user-friendly way to interact with the Pacstall package repository. It aims to make pacstall more accessible for people who have terminalophobia.
 
-## ✨ Features
+## Features
 
 - **Browse Packages**: View the entire list of available packages from the official Pacstall repository.
 - **Live Search**: Instantly filter packages as you type.
@@ -19,7 +19,7 @@ This application provides a user-friendly way to interact with the Pacstall pack
 - **Pacstall Status Check**: Immediately see if `pacstall` is detected on your system.
 - **Manage Pacstall Packages**: Install/Uninstall pacakges is as easy as a few clicks.
 
-## 🚀 Planned Features
+## Planned Features
 
 This project is under active development. Here are some of the features we plan to add next:
 
@@ -29,7 +29,7 @@ This project is under active development. Here are some of the features we plan 
 - [x] ~~**Detailed Package View**: A dedicated page for each package with more in-depth information.~~
 - [x] ~~**Theme Toggle**: Switch between light and dark modes.~~
 
-## 🛠️ Installation
+## Installation
 
 ### Simply download and execute the binary from the releases page [here](https://github.com/IMYdev/PGM/releases/tag/Alpha).
 ## OR
@@ -55,14 +55,14 @@ This project is under active development. Here are some of the features we plan 
     python main.py
     ```
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! If you have ideas for new features, bug fixes, or improvements, feel free to open an issue or submit a pull request.
 
-## 👨‍💻 Credits
+## Credits
 - Pacstall [developers](https://discord.gg/yzrjXJV6K8) for the [Pacstall Package Manager](https://github.com/pacstall/pacstall).
 - [@april865](https://t.me/april865) for the logo.
 
-## 📄 License
+## License
 
 This project is open-source and available under the GPLv3 copyleft.
