@@ -1,3 +1,5 @@
+# DEPRECATED, new, rewritten project can be found here: [PacStallion](https://pacstallion.imy.com.ly)
+
 
 # Pacstall GUI Manager (PGM)
 
